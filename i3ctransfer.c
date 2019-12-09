@@ -16,8 +16,8 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#include <i3c/i3cdev.h>
-#include <i3c/device.h>
+#include "i3cdev.h"
+#include "device.h"
 
 #define VERSION "0.1"
 
