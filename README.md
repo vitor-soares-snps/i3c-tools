@@ -14,7 +14,7 @@ published the i3chdrtransfer tool that allow to send commands in HDR-DDR
 or HDR-TS mode.
 
 Please refer to:
-
+	https://patchwork.kernel.org/cover/11282837/
 for i3cdev module support.
 
 # Build
