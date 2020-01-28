@@ -16,8 +16,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#include "i3cdev.h"
-#include "device.h"
+#include <i3c/i3cdev.h>
 
 #define VERSION "0.1"
 
@@ -43,7 +42,7 @@ static void print_usage(const char *name)
 	fprintf(stderr, "    -v --version                     Output the version number and exit\n");
 }
 
-static int rx_args_to_xfer(struct i3c_priv_xfer *xfer, char *arg)
+static int rx_args_to_xfer(struct i3c_ioc_priv_xfer *xfer, char *arg)
 {
 	int len = strtol(optarg, NULL, 0);
 	uint8_t *tmp;
@@ -52,14 +51,14 @@ static int rx_args_to_xfer(struct i3c_priv_xfer *xfer, char *arg)
 	if (!tmp)
 		return -1;
 
-	xfer->data.in = tmp;
-	xfer->len = len;
 	xfer->rnw = 1;
+	xfer->len = len;
+	xfer->data = (uintptr_t)tmp;
 
 	return 0;
 }
 
-static int w_args_to_xfer(struct i3c_priv_xfer *xfer, char *arg)
+static int w_args_to_xfer(struct i3c_ioc_priv_xfer *xfer, char *arg)
 {
 	char *data_ptrs[256];
 	int len, i = 0;
@@ -77,13 +76,13 @@ static int w_args_to_xfer(struct i3c_priv_xfer *xfer, char *arg)
 	for (len = 0; len < i; len++)
 		tmp[len] = (uint8_t)strtol(data_ptrs[len], NULL, 0);
 
-	xfer->data.out = tmp;
 	xfer->len = len;
+	xfer->data = (uintptr_t)tmp;
 
 	return 0;
 }
 
-static void print_rx_data(struct i3c_priv_xfer *xfer)
+static void print_rx_data(struct i3c_ioc_priv_xfer *xfer)
 {
 	uint8_t *tmp;
 	int i;
@@ -92,7 +91,7 @@ static void print_rx_data(struct i3c_priv_xfer *xfer)
 	if (!tmp)
 		return;
 
-	memcpy(tmp, xfer->data.in, xfer->len * sizeof(uint8_t));
+	memcpy(tmp, (void *)(uintptr_t)xfer->data, xfer->len * sizeof(uint8_t));
 
 	fprintf(stdout, "  received data:\n");
 	for (i = 0; i < xfer->len; i++)
@@ -103,8 +102,7 @@ static void print_rx_data(struct i3c_priv_xfer *xfer)
 
 int main(int argc, char *argv[])
 {
-	struct i3c_ioc_priv_xfer ioc_xfer;
-	struct i3c_priv_xfer *xfers;
+	struct i3c_ioc_priv_xfer *xfers;
 	int file, ret, opt, i;
 	int nxfers = 0;
 	char *device;
@@ -139,7 +137,7 @@ int main(int argc, char *argv[])
 	if (file < 0)
 		exit(EXIT_FAILURE);
 
-	xfers = (struct i3c_priv_xfer *)calloc(nxfers, sizeof(*xfers));
+	xfers = (struct i3c_ioc_priv_xfer *)calloc(nxfers, sizeof(*xfers));
 	if (!xfers)
 		exit(EXIT_FAILURE);
 
@@ -171,10 +169,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	ioc_xfer.nxfers = nxfers;
-	ioc_xfer.xfers = xfers;
-
-	if (ioctl(file, I3C_IOC_PRIV_XFER, &ioc_xfer) < 0) {
+	if (ioctl(file, I3C_IOC_PRIV_XFER(nxfers), xfers) < 0) {
 		fprintf(stderr, "Error: transfer failed: %s\n", strerror(errno));
 		ret = EXIT_FAILURE;
 		goto err_free;
@@ -189,13 +184,8 @@ int main(int argc, char *argv[])
 	ret = EXIT_SUCCESS;
 
 err_free:
-	for (i = 0; i < nxfers; i++) {
-		if (xfers[i].rnw)
-			free(xfers[i].data.in);
-		else
-			free((void *)xfers[i].data.out);
-	}
-
+	for (i = 0; i < nxfers; i++)
+		free((void *)(uintptr_t)xfers[i].data);
 	free(xfers);
 
 	return ret;
