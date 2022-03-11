@@ -103,9 +103,9 @@ static void print_rx_data(struct i3c_ioc_priv_xfer *xfer)
 int main(int argc, char *argv[])
 {
 	struct i3c_ioc_priv_xfer *xfers;
-	int file, ret, opt, i;
+	int file = -1, ret, opt, i;
 	int nxfers = 0;
-	char *device;
+	char *device = NULL;
 
 	while ((opt = getopt_long(argc, argv,  sopts, lopts, NULL)) != EOF) {
 		switch (opt) {
@@ -130,12 +130,13 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (!device)
-		exit(EXIT_FAILURE);
+	if (device)
+		file = open(device, O_RDWR);
 
-	file = open(device, O_RDWR);
-	if (file < 0)
+	if (file < 0) {
+		fprintf(stderr, "Error: Invalid device\n");
 		exit(EXIT_FAILURE);
+	}
 
 	xfers = (struct i3c_ioc_priv_xfer *)calloc(nxfers, sizeof(*xfers));
 	if (!xfers)
